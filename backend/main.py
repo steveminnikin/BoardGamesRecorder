@@ -5,10 +5,8 @@ from sqlalchemy.orm import Session
 from typing import List
 import os
 
-import models
-import schemas
-import crud
-from database import engine, get_db
+from backend import models, schemas, crud
+from backend.database import engine, get_db
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
