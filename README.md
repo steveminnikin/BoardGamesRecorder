@@ -25,14 +25,27 @@ A simple web application to track board game matches, record outcomes, and view 
 
 ## Installation
 
-### 1. Clone or copy the project to your Raspberry Pi
+### 🎯 For OpenMediaVault Users
+
+**If you're running OpenMediaVault on your Raspberry Pi 5**, use the simplified deployment process:
+
+📖 **See [OPENMEDIAVAULT_DEPLOYMENT.md](OPENMEDIAVAULT_DEPLOYMENT.md) for detailed OMV-specific instructions**
+
+**Quick Start:**
+1. Access OMV web interface
+2. Go to Services → Compose → Files
+3. Create new compose file with the GitHub repository URL
+4. Deploy and access at `http://<your-pi-ip>:8000`
+
+---
+
+### Standard Docker Installation
+
+### 1. Clone the project to your Raspberry Pi
 
 ```bash
-# If using git
-git clone <repository-url>
+git clone https://github.com/steveminnikin/BoardGamesRecorder.git
 cd BoardGamesRecorder
-
-# Or copy the files directly to your Pi
 ```
 
 ### 2. Build and start the application
