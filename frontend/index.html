@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Board Game Tracker</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+</head>
+<body>
+    <div id="app">
+        <div class="container">
+            <header>
+                <h1>🎲 Board Game Tracker</h1>
+            </header>
+
+            <!-- Navigation Tabs -->
+            <nav class="tabs">
+                <button
+                    @click="currentTab = 'record'"
+                    :class="{ active: currentTab === 'record' }">
+                    Record Match
+                </button>
+                <button
+                    @click="currentTab = 'history'"
+                    :class="{ active: currentTab === 'history' }">
+                    History
+                </button>
+                <button
+                    @click="currentTab = 'stats'"
+                    :class="{ active: currentTab === 'stats' }">
+                    Statistics
+                </button>
+                <button
+                    @click="currentTab = 'setup'"
+                    :class="{ active: currentTab === 'setup' }">
+                    Setup
+                </button>
+            </nav>
+
+            <!-- Record Match Tab -->
+            <div v-if="currentTab === 'record'" class="tab-content">
+                <h2>Record a Match</h2>
+                <form @submit.prevent="recordMatch" class="form">
+                    <div class="form-group">
+                        <label>Game</label>
+                        <select v-model="newMatch.gameId" required>
+                            <option value="">Select a game...</option>
+                            <option v-for="game in games" :key="game.id" :value="game.id">
+                                {{ game.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Winner</label>
+                        <select v-model="newMatch.winnerId" required>
+                            <option value="">Select winner...</option>
+                            <option v-for="player in players" :key="player.id" :value="player.id">
+                                {{ player.name }}
+                            </option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Date Played</label>
+                        <input type="datetime-local" v-model="newMatch.datePlayed" required>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary">Record Match</button>
+                </form>
+
+                <div v-if="message" class="message" :class="messageType">
+                    {{ message }}
+                </div>
+            </div>
+
+            <!-- History Tab -->
+            <div v-if="currentTab === 'history'" class="tab-content">
+                <h2>Match History</h2>
+                <div v-if="matches.length === 0" class="empty-state">
+                    No matches recorded yet. Record your first match!
+                </div>
+                <div v-else class="match-list">
+                    <div v-for="match in matches" :key="match.id" class="match-card">
+                        <div class="match-game">{{ match.game_name }}</div>
+                        <div class="match-winner">Winner: {{ match.winner_name }}</div>
+                        <div class="match-date">{{ formatDate(match.date_played) }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Statistics Tab -->
+            <div v-if="currentTab === 'stats'" class="tab-content">
+                <h2>Game Statistics</h2>
+                <div v-if="stats.length === 0" class="empty-state">
+                    No statistics available yet.
+                </div>
+                <div v-else class="stats-list">
+                    <div v-for="stat in stats" :key="stat.game_id" class="stats-card">
+                        <h3>{{ stat.game_name }}</h3>
+                        <p class="total-matches">Total matches: {{ stat.total_matches }}</p>
+                        <div class="player-stats">
+                            <div v-for="(data, playerName) in stat.player_stats" :key="playerName" class="player-stat">
+                                <div class="player-name">{{ playerName }}</div>
+                                <div class="win-info">
+                                    <span class="wins">{{ data.wins }} wins</span>
+                                    <span class="win-rate" :style="getWinRateColor(data.win_rate)">
+                                        {{ data.win_rate }}%
+                                    </span>
+                                </div>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" :style="{ width: data.win_rate + '%' }"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Setup Tab -->
+            <div v-if="currentTab === 'setup'" class="tab-content">
+                <h2>Setup</h2>
+
+                <h3>Add Player</h3>
+                <form @submit.prevent="addPlayer" class="form">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            v-model="newPlayer"
+                            placeholder="Player name"
+                            required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Player</button>
+                </form>
+
+                <div class="list-section">
+                    <h4>Current Players</h4>
+                    <div v-if="players.length === 0" class="empty-state">No players added yet.</div>
+                    <ul v-else>
+                        <li v-for="player in players" :key="player.id">{{ player.name }}</li>
+                    </ul>
+                </div>
+
+                <h3>Add Game</h3>
+                <form @submit.prevent="addGame" class="form">
+                    <div class="form-group">
+                        <input
+                            type="text"
+                            v-model="newGame"
+                            placeholder="Game name"
+                            required>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Add Game</button>
+                </form>
+
+                <div class="list-section">
+                    <h4>Current Games</h4>
+                    <div v-if="games.length === 0" class="empty-state">No games added yet.</div>
+                    <ul v-else>
+                        <li v-for="game in games" :key="game.id">{{ game.name }}</li>
+                    </ul>
+                </div>
+
+                <div v-if="message" class="message" :class="messageType">
+                    {{ message }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

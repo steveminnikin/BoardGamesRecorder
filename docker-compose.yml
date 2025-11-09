@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  boardgames:
+    build: .
+    container_name: boardgames-tracker
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist database
+      - ./data:/app/data
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/api/players')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
