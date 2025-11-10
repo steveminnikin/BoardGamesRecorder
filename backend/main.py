@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 from typing import List
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -7,15 +8,18 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-if __package__ in (None, ""):
-    sys.path.append(os.path.dirname(__file__))
+try:
+    # Normal package import when backend is available on PYTHONPATH
+    from backend import crud, models, schemas
+    from backend.database import engine, get_db
+except ImportError:  # pragma: no cover - fallback for `python backend/main.py`
+    backend_dir = Path(__file__).resolve().parent
+    if str(backend_dir) not in sys.path:
+        sys.path.append(str(backend_dir))
     import crud  # type: ignore  # noqa: F401
     import models  # type: ignore  # noqa: F401
     import schemas  # type: ignore  # noqa: F401
     from database import engine, get_db  # type: ignore  # noqa: F401
-else:
-    from . import crud, models, schemas
-    from .database import engine, get_db
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
