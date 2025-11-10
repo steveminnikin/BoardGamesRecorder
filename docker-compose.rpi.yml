@@ -1,0 +1,32 @@
+version: "3.9"
+
+services:
+  boardgames:
+    container_name: boardgames-tracker
+    platform: linux/arm64
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      TZ: "UTC"
+      PYTHONUNBUFFERED: "1"
+      SQLALCHEMY_DATABASE_URL: "sqlite:///./data/boardgames.db"
+    volumes:
+      - boardgames-data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "python -c 'import urllib.request; urllib.request.urlopen(\"http://localhost:8000/api/players\")'",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  boardgames-data:
+    driver: local
