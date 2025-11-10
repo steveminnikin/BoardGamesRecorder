@@ -1,6 +1,15 @@
-from sqlalchemy.orm import Session
+import os
+import sys
+
 from sqlalchemy import func
-from backend import models, schemas
+from sqlalchemy.orm import Session
+
+if __package__ in (None, ""):
+    sys.path.append(os.path.dirname(__file__))
+    import models  # type: ignore  # noqa: F401
+    import schemas  # type: ignore  # noqa: F401
+else:
+    from . import models, schemas
 
 # Players
 def get_players(db: Session):
