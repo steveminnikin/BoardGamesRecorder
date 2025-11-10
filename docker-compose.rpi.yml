@@ -8,13 +8,13 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8000:8000"
+      - "8088:8000"
     environment:
       TZ: "UTC"
       PYTHONUNBUFFERED: "1"
       SQLALCHEMY_DATABASE_URL: "sqlite:///./data/boardgames.db"
     volumes:
-      - boardgames-data:/app/data
+      - "/srv/dev-disk-by-uuid-e7c9f478-064a-4675-acb7-fca7a195f214/appdata/boardgames/data:/app/data"
     restart: unless-stopped
     healthcheck:
       test:
@@ -26,7 +26,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
-
-volumes:
-  boardgames-data:
-    driver: local
