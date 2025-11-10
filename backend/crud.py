@@ -20,6 +20,10 @@ def get_player(db: Session, player_id: int):
     return db.query(models.Player).filter(models.Player.id == player_id).first()
 
 def create_player(db: Session, player: schemas.PlayerCreate):
+    existing = db.query(models.Player).filter(func.lower(models.Player.name) == player.name.lower()).first()
+    if existing:
+        raise ValueError("Player name already exists")
+
     db_player = models.Player(name=player.name)
     db.add(db_player)
     db.commit()
@@ -32,6 +36,14 @@ def update_player(db: Session, player_id: int, player_update: schemas.PlayerUpda
         return None
 
     update_data = player_update.model_dump(exclude_unset=True)
+    if "name" in update_data:
+        duplicate = db.query(models.Player).filter(
+            func.lower(models.Player.name) == update_data["name"].lower(),
+            models.Player.id != player_id,
+        ).first()
+        if duplicate:
+            raise ValueError("Player name already exists")
+
     for field, value in update_data.items():
         setattr(db_player, field, value)
 
@@ -61,6 +73,10 @@ def get_game(db: Session, game_id: int):
     return db.query(models.Game).filter(models.Game.id == game_id).first()
 
 def create_game(db: Session, game: schemas.GameCreate):
+    existing = db.query(models.Game).filter(func.lower(models.Game.name) == game.name.lower()).first()
+    if existing:
+        raise ValueError("Game name already exists")
+
     db_game = models.Game(name=game.name)
     db.add(db_game)
     db.commit()
@@ -73,6 +89,14 @@ def update_game(db: Session, game_id: int, game_update: schemas.GameUpdate):
         return None
 
     update_data = game_update.model_dump(exclude_unset=True)
+    if "name" in update_data:
+        duplicate = db.query(models.Game).filter(
+            func.lower(models.Game.name) == update_data["name"].lower(),
+            models.Game.id != game_id,
+        ).first()
+        if duplicate:
+            raise ValueError("Game name already exists")
+
     for field, value in update_data.items():
         setattr(db_game, field, value)
 
