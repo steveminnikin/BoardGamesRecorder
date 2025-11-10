@@ -1,7 +1,15 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
-from backend.database import Base
+import os
+import sys
 from datetime import datetime
+
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
+if __package__ in (None, ""):
+    sys.path.append(os.path.dirname(__file__))
+    from database import Base  # type: ignore  # noqa: F401
+else:
+    from .database import Base
 
 class Player(Base):
     __tablename__ = "players"

@@ -1,12 +1,21 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+import sys
+from typing import List
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from typing import List
-import os
 
-from backend import models, schemas, crud
-from backend.database import engine, get_db
+if __package__ in (None, ""):
+    sys.path.append(os.path.dirname(__file__))
+    import crud  # type: ignore  # noqa: F401
+    import models  # type: ignore  # noqa: F401
+    import schemas  # type: ignore  # noqa: F401
+    from database import engine, get_db  # type: ignore  # noqa: F401
+else:
+    from . import crud, models, schemas
+    from .database import engine, get_db
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
