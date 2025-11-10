@@ -2,6 +2,7 @@ import os
 import sys
 
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 if __package__ in (None, ""):
@@ -25,6 +26,33 @@ def create_player(db: Session, player: schemas.PlayerCreate):
     db.refresh(db_player)
     return db_player
 
+def update_player(db: Session, player_id: int, player_update: schemas.PlayerUpdate):
+    db_player = get_player(db, player_id)
+    if not db_player:
+        return None
+
+    update_data = player_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_player, field, value)
+
+    db.commit()
+    db.refresh(db_player)
+    return db_player
+
+def delete_player(db: Session, player_id: int):
+    db_player = get_player(db, player_id)
+    if not db_player:
+        return None
+
+    try:
+        db.delete(db_player)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValueError("Cannot delete player with existing matches") from exc
+
+    return db_player
+
 # Games
 def get_games(db: Session):
     return db.query(models.Game).all()
@@ -39,6 +67,33 @@ def create_game(db: Session, game: schemas.GameCreate):
     db.refresh(db_game)
     return db_game
 
+def update_game(db: Session, game_id: int, game_update: schemas.GameUpdate):
+    db_game = get_game(db, game_id)
+    if not db_game:
+        return None
+
+    update_data = game_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_game, field, value)
+
+    db.commit()
+    db.refresh(db_game)
+    return db_game
+
+def delete_game(db: Session, game_id: int):
+    db_game = get_game(db, game_id)
+    if not db_game:
+        return None
+
+    try:
+        db.delete(db_game)
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise ValueError("Cannot delete game with existing matches") from exc
+
+    return db_game
+
 # Matches
 def get_matches(db: Session, skip: int = 0, limit: int = 100):
     return db.query(models.Match).order_by(models.Match.date_played.desc()).offset(skip).limit(limit).all()
@@ -51,6 +106,28 @@ def create_match(db: Session, match: schemas.MatchCreate):
     db.add(db_match)
     db.commit()
     db.refresh(db_match)
+    return db_match
+
+def update_match(db: Session, match_id: int, match_update: schemas.MatchUpdate):
+    db_match = get_match(db, match_id)
+    if not db_match:
+        return None
+
+    update_data = match_update.model_dump(exclude_unset=True)
+    for field, value in update_data.items():
+        setattr(db_match, field, value)
+
+    db.commit()
+    db.refresh(db_match)
+    return db_match
+
+def delete_match(db: Session, match_id: int):
+    db_match = get_match(db, match_id)
+    if not db_match:
+        return None
+
+    db.delete(db_match)
+    db.commit()
     return db_match
 
 def get_matches_with_details(db: Session, skip: int = 0, limit: int = 100):
