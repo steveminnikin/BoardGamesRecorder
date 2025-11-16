@@ -81,6 +81,11 @@ def get_game_stats(db: Session, game_id: int = None):
         matches = db.query(models.Match).filter(models.Match.game_id == game.id).all()
         total_matches = len(matches)
 
+        # Get the most recent match date
+        last_played = None
+        if matches:
+            last_played = max(match.date_played for match in matches)
+
         player_stats = {}
         if total_matches > 0:
             players = db.query(models.Player).all()
@@ -99,6 +104,7 @@ def get_game_stats(db: Session, game_id: int = None):
             game_id=game.id,
             game_name=game.name,
             total_matches=total_matches,
+            last_played=last_played,
             player_stats=player_stats
         ))
 

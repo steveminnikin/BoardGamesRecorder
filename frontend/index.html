@@ -99,7 +99,10 @@
                 <div v-else class="stats-list">
                     <div v-for="stat in stats" :key="stat.game_id" class="stats-card">
                         <h3>{{ stat.game_name }}</h3>
-                        <p class="total-matches">Total matches: {{ stat.total_matches }}</p>
+                        <div class="game-info">
+                            <p class="total-matches">Total matches: {{ stat.total_matches }}</p>
+                            <p class="last-played" v-if="stat.last_played">Last played: {{ formatDate(stat.last_played) }}</p>
+                        </div>
                         <div class="player-stats">
                             <div v-for="(data, playerName) in stat.player_stats" :key="playerName" class="player-stat">
                                 <div class="player-name">{{ playerName }}</div>

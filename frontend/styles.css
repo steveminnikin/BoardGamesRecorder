@@ -255,10 +255,25 @@ h4 {
     color: var(--primary-color);
 }
 
+.game-info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
 .total-matches {
     color: var(--text-secondary);
     font-size: 0.875rem;
-    margin-bottom: 1rem;
+    margin: 0;
+}
+
+.last-played {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+    margin: 0;
 }
 
 .player-stats {

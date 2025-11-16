@@ -54,6 +54,7 @@ class GameStats(BaseModel):
     game_id: int
     game_name: str
     total_matches: int
+    last_played: Optional[datetime] = None
     player_stats: dict  # {player_name: {wins: int, win_rate: float}}
 
     class Config:
