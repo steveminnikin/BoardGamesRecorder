@@ -6,6 +6,7 @@ including fetching user collections and synchronizing game data.
 """
 
 import logging
+import os
 import time
 import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
@@ -21,10 +22,26 @@ class BGGIntegration:
 
     BGG_API_BASE = "https://boardgamegeek.com/xmlapi2"
 
-    def __init__(self):
-        """Initialize BGG API client."""
+    def __init__(self, api_token: Optional[str] = None):
+        """
+        Initialize BGG API client.
+
+        Args:
+            api_token: Optional BGG API token for authentication.
+                      If not provided, will try to read from BGG_API_TOKEN environment variable.
+        """
         self.session = requests.Session()
         self.session.headers.update({'User-Agent': 'BoardGamesRecorder/1.0'})
+
+        # Set up API token if provided or available from environment
+        token = api_token or os.environ.get('BGG_API_TOKEN')
+        if token:
+            self.session.headers.update({'Authorization': f'Bearer {token}'})
+            logger.info("BGG API token configured for authenticated requests")
+        else:
+            logger.warning("No BGG API token configured. API requests may be rate-limited or fail. "
+                         "Register at https://boardgamegeek.com/applications to obtain a token.")
+
         self.min_request_interval = 5  # BGG API rate limit: 5 seconds between requests
         self.last_request_time = 0
 
@@ -86,7 +103,11 @@ class BGGIntegration:
 
                 # Handle specific error codes
                 if response.status_code == 401:
-                    logger.error(f"Access denied: Collection for '{username}' is private or authentication required")
+                    logger.error(
+                        f"Access denied (401): BGG API requires authentication. "
+                        f"Please register for API access at https://boardgamegeek.com/applications "
+                        f"and set the BGG_API_TOKEN environment variable with your API token."
+                    )
                     return None
 
                 if response.status_code == 404:

@@ -13,6 +13,9 @@ services:
       TZ: "UTC"
       PYTHONUNBUFFERED: "1"
       SQLALCHEMY_DATABASE_URL: "sqlite:///./data/boardgames.db"
+      # Optional: BGG API token for authenticated access
+      # Register at https://boardgamegeek.com/applications to obtain a token
+      BGG_API_TOKEN: "${BGG_API_TOKEN:-}"
     volumes:
       - "/srv/dev-disk-by-uuid-e7c9f478-064a-4675-acb7-fca7a195f214/appdata/boardgames/data:/app/data"
     dns:
