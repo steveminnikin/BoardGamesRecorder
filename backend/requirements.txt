@@ -5,5 +5,3 @@ pydantic==2.5.3
 python-dateutil==2.8.2
 aiofiles==23.2.1
 requests==2.31.0
-requests-cache==0.9.8
-boardgamegeek2==1.0.1

@@ -1,32 +1,30 @@
 """
 BoardGameGeek API Integration Module
 
-This module handles all interactions with the BoardGameGeek (BGG) API,
+This module handles all interactions with the BoardGameGeek (BGG) XML API,
 including fetching user collections and synchronizing game data.
 """
 
 import logging
 import time
+import xml.etree.ElementTree as ET
 from typing import List, Dict, Optional
 from datetime import datetime
-from boardgamegeek import BGGClient
-from boardgamegeek.exceptions import BGGValueError, BGGItemNotFoundError
+import requests
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 class BGGIntegration:
-    """Wrapper for BoardGameGeek API interactions with rate limiting and caching."""
+    """Direct BoardGameGeek XML API integration with rate limiting."""
 
-    def __init__(self, cache_ttl: int = 3600):
-        """
-        Initialize BGG client with caching.
+    BGG_API_BASE = "https://boardgamegeek.com/xmlapi2"
 
-        Args:
-            cache_ttl: Cache time-to-live in seconds (default: 1 hour)
-        """
-        self.client = BGGClient(cache='memory', ttl=cache_ttl)
+    def __init__(self):
+        """Initialize BGG API client."""
+        self.session = requests.Session()
+        self.session.headers.update({'User-Agent': 'BoardGamesRecorder/1.0'})
         self.min_request_interval = 5  # BGG API rate limit: 5 seconds between requests
         self.last_request_time = 0
 
@@ -43,7 +41,7 @@ class BGGIntegration:
         self,
         username: str,
         owned_only: bool = True,
-        max_retries: int = 3
+        max_retries: int = 5
     ) -> Optional[List[Dict]]:
         """
         Fetch a user's board game collection from BGG.
@@ -58,121 +56,158 @@ class BGGIntegration:
         """
         logger.info(f"Fetching collection for user: {username}")
 
+        params = {
+            'username': username,
+            'subtype': 'boardgame',
+            'stats': '1'
+        }
+
+        if owned_only:
+            params['own'] = '1'
+
         for attempt in range(max_retries):
             try:
                 self._rate_limit()
 
-                # Fetch collection with filters
-                collection = self.client.collection(
-                    user_name=username,
-                    subtype='boardgame',  # Exclude expansions
-                    own=owned_only
+                response = self.session.get(
+                    f"{self.BGG_API_BASE}/collection",
+                    params=params,
+                    timeout=30
                 )
 
-                if collection is None:
-                    logger.error(f"User '{username}' not found or collection is private")
-                    return None
+                # BGG returns 202 when collection is being generated
+                if response.status_code == 202:
+                    logger.info(f"Collection queued (attempt {attempt + 1}/{max_retries}). Retrying in 5 seconds...")
+                    time.sleep(5)
+                    continue
 
-                # Convert collection items to dictionary format
-                games = []
-                for item in collection.items:
-                    game_data = self._extract_game_data(item)
-                    if game_data:
-                        games.append(game_data)
+                if response.status_code == 200:
+                    return self._parse_collection_xml(response.text)
 
-                logger.info(f"Successfully fetched {len(games)} games for {username}")
-                return games
-
-            except BGGItemNotFoundError:
-                logger.error(f"User '{username}' not found")
+                logger.error(f"Unexpected status code: {response.status_code}")
                 return None
 
-            except BGGValueError as e:
-                logger.error(f"Invalid parameter: {e}")
+            except requests.exceptions.Timeout:
+                logger.warning(f"Request timeout (attempt {attempt + 1}/{max_retries})")
+                if attempt < max_retries - 1:
+                    time.sleep(5)
+                    continue
                 return None
 
             except Exception as e:
-                logger.warning(f"Attempt {attempt + 1}/{max_retries} failed: {e}")
+                logger.error(f"Error fetching collection: {e}")
                 if attempt < max_retries - 1:
-                    # Exponential backoff
-                    sleep_time = (attempt + 1) * 5
-                    logger.info(f"Retrying in {sleep_time} seconds...")
-                    time.sleep(sleep_time)
-                else:
-                    logger.error(f"Failed to fetch collection after {max_retries} attempts")
-                    return None
+                    time.sleep(5)
+                    continue
+                return None
 
+        logger.error(f"Failed to fetch collection after {max_retries} attempts")
         return None
 
-    def _extract_game_data(self, item) -> Optional[Dict]:
+    def _parse_collection_xml(self, xml_text: str) -> List[Dict]:
         """
-        Extract relevant game data from a BGG collection item.
+        Parse BGG collection XML response.
 
         Args:
-            item: BGG collection item object
+            xml_text: XML response from BGG API
+
+        Returns:
+            List of game dictionaries
+        """
+        games = []
+
+        try:
+            root = ET.fromstring(xml_text)
+
+            for item in root.findall('item'):
+                try:
+                    game_data = self._extract_game_from_xml(item)
+                    if game_data:
+                        games.append(game_data)
+                except Exception as e:
+                    logger.warning(f"Error parsing game item: {e}")
+                    continue
+
+            logger.info(f"Successfully parsed {len(games)} games from XML")
+            return games
+
+        except ET.ParseError as e:
+            logger.error(f"Error parsing XML: {e}")
+            return []
+
+    def _extract_game_from_xml(self, item: ET.Element) -> Optional[Dict]:
+        """
+        Extract game data from an XML item element.
+
+        Args:
+            item: XML Element representing a game
 
         Returns:
             Dictionary with game data or None if extraction fails
         """
         try:
-            game_data = {
-                'bgg_id': item.id,
-                'name': item.name,
-                'year_published': getattr(item, 'year_published', None),
-                'thumbnail_url': getattr(item, 'thumbnail', None),
-                'image_url': getattr(item, 'image', None),
-                'min_players': getattr(item, 'min_players', None),
-                'max_players': getattr(item, 'max_players', None),
-                'playing_time': getattr(item, 'playing_time', None),
-            }
+            # Get basic info
+            bgg_id = item.get('objectid')
+            if not bgg_id:
+                return None
 
-            # Try to get BGG rating if available
-            try:
-                stats = getattr(item, 'stats', None)
-                if stats:
-                    rating = getattr(stats, 'average', None)
-                    game_data['bgg_rating'] = float(rating) if rating else None
-            except (AttributeError, ValueError, TypeError):
-                game_data['bgg_rating'] = None
+            name_elem = item.find('name')
+            name = name_elem.text if name_elem is not None else None
+
+            if not name:
+                return None
+
+            # Get optional fields
+            year_elem = item.find('yearpublished')
+            year_published = int(year_elem.text) if year_elem is not None and year_elem.text else None
+
+            thumbnail_elem = item.find('thumbnail')
+            thumbnail_url = thumbnail_elem.text if thumbnail_elem is not None else None
+
+            image_elem = item.find('image')
+            image_url = image_elem.text if image_elem is not None else None
+
+            # Get stats if available
+            stats_elem = item.find('stats')
+            min_players = None
+            max_players = None
+            playing_time = None
+            bgg_rating = None
+
+            if stats_elem is not None:
+                min_players_elem = stats_elem.get('minplayers')
+                max_players_elem = stats_elem.get('maxplayers')
+                playing_time_elem = stats_elem.get('playingtime')
+
+                min_players = int(min_players_elem) if min_players_elem else None
+                max_players = int(max_players_elem) if max_players_elem else None
+                playing_time = int(playing_time_elem) if playing_time_elem else None
+
+                # Get average rating
+                rating_elem = stats_elem.find('.//average')
+                if rating_elem is not None and rating_elem.get('value'):
+                    try:
+                        rating_value = rating_elem.get('value')
+                        bgg_rating = float(rating_value) if rating_value != 'N/A' else None
+                    except (ValueError, TypeError):
+                        bgg_rating = None
+
+            game_data = {
+                'bgg_id': int(bgg_id),
+                'name': name,
+                'year_published': year_published,
+                'thumbnail_url': thumbnail_url,
+                'image_url': image_url,
+                'min_players': min_players,
+                'max_players': max_players,
+                'playing_time': playing_time,
+                'bgg_rating': bgg_rating
+            }
 
             return game_data
 
         except Exception as e:
             logger.error(f"Error extracting game data: {e}")
-            return None
-
-    def get_game_details(self, game_id: int) -> Optional[Dict]:
-        """
-        Fetch detailed information for a specific game.
-
-        Args:
-            game_id: BGG game ID
-
-        Returns:
-            Dictionary with detailed game data or None if error
-        """
-        try:
-            self._rate_limit()
-
-            game = self.client.game(game_id=game_id)
-            if not game:
-                return None
-
-            return {
-                'bgg_id': game.id,
-                'name': game.name,
-                'year_published': getattr(game, 'year', None),
-                'thumbnail_url': getattr(game, 'thumbnail', None),
-                'image_url': getattr(game, 'image', None),
-                'min_players': getattr(game, 'min_players', None),
-                'max_players': getattr(game, 'max_players', None),
-                'playing_time': getattr(game, 'playing_time', None),
-                'bgg_rating': getattr(game, 'rating_average', None),
-                'description': getattr(game, 'description', None),
-            }
-
-        except Exception as e:
-            logger.error(f"Error fetching game {game_id}: {e}")
             return None
 
 
