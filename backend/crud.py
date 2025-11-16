@@ -1,5 +1,7 @@
 import os
 import sys
+from datetime import datetime
+from typing import Dict, List
 
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -9,8 +11,10 @@ if __package__ in (None, ""):
     sys.path.append(os.path.dirname(__file__))
     import models  # type: ignore  # noqa: F401
     import schemas  # type: ignore  # noqa: F401
+    from bgg_integration import get_bgg_client  # type: ignore  # noqa: F401
 else:
     from . import models, schemas
+    from .bgg_integration import get_bgg_client
 
 # Players
 def get_players(db: Session):
@@ -219,3 +223,118 @@ def get_game_stats(db: Session, game_id: int = None):
         ))
 
     return stats
+
+# BoardGameGeek Integration
+def get_game_by_bgg_id(db: Session, bgg_id: int):
+    """Get a game by its BoardGameGeek ID."""
+    return db.query(models.Game).filter(models.Game.bgg_id == bgg_id).first()
+
+def sync_games_from_bgg(db: Session, username: str) -> Dict:
+    """
+    Sync games from BoardGameGeek for a given username.
+
+    Returns a dictionary with sync results:
+    {
+        'success': bool,
+        'games_added': int,
+        'games_updated': int,
+        'errors': List[str],
+        'total_games': int
+    }
+    """
+    result = {
+        'success': False,
+        'games_added': 0,
+        'games_updated': 0,
+        'errors': [],
+        'total_games': 0
+    }
+
+    try:
+        # Fetch collection from BGG
+        bgg_client = get_bgg_client()
+        games_data = bgg_client.fetch_user_collection(username)
+
+        if games_data is None:
+            result['errors'].append(f"Failed to fetch collection for user '{username}'")
+            return result
+
+        result['total_games'] = len(games_data)
+        current_time = datetime.utcnow()
+
+        # Process each game
+        for game_data in games_data:
+            try:
+                bgg_id = game_data.get('bgg_id')
+                if not bgg_id:
+                    result['errors'].append(f"Game missing BGG ID: {game_data.get('name', 'Unknown')}")
+                    continue
+
+                # Check if game already exists by BGG ID
+                existing_game = get_game_by_bgg_id(db, bgg_id)
+
+                if existing_game:
+                    # Update existing game
+                    existing_game.name = game_data.get('name', existing_game.name)
+                    existing_game.year_published = game_data.get('year_published')
+                    existing_game.thumbnail_url = game_data.get('thumbnail_url')
+                    existing_game.image_url = game_data.get('image_url')
+                    existing_game.min_players = game_data.get('min_players')
+                    existing_game.max_players = game_data.get('max_players')
+                    existing_game.playing_time = game_data.get('playing_time')
+                    existing_game.bgg_rating = game_data.get('bgg_rating')
+                    existing_game.is_from_bgg = True
+                    existing_game.last_synced = current_time
+                    result['games_updated'] += 1
+                else:
+                    # Check if a game with the same name exists (case-insensitive)
+                    name_conflict = db.query(models.Game).filter(
+                        func.lower(models.Game.name) == game_data.get('name', '').lower()
+                    ).first()
+
+                    if name_conflict:
+                        # Update the existing game with BGG data
+                        name_conflict.bgg_id = bgg_id
+                        name_conflict.year_published = game_data.get('year_published')
+                        name_conflict.thumbnail_url = game_data.get('thumbnail_url')
+                        name_conflict.image_url = game_data.get('image_url')
+                        name_conflict.min_players = game_data.get('min_players')
+                        name_conflict.max_players = game_data.get('max_players')
+                        name_conflict.playing_time = game_data.get('playing_time')
+                        name_conflict.bgg_rating = game_data.get('bgg_rating')
+                        name_conflict.is_from_bgg = True
+                        name_conflict.last_synced = current_time
+                        result['games_updated'] += 1
+                    else:
+                        # Create new game
+                        new_game = models.Game(
+                            name=game_data.get('name', 'Unknown'),
+                            bgg_id=bgg_id,
+                            year_published=game_data.get('year_published'),
+                            thumbnail_url=game_data.get('thumbnail_url'),
+                            image_url=game_data.get('image_url'),
+                            min_players=game_data.get('min_players'),
+                            max_players=game_data.get('max_players'),
+                            playing_time=game_data.get('playing_time'),
+                            bgg_rating=game_data.get('bgg_rating'),
+                            is_from_bgg=True,
+                            last_synced=current_time
+                        )
+                        db.add(new_game)
+                        result['games_added'] += 1
+
+            except Exception as e:
+                error_msg = f"Error processing game {game_data.get('name', 'Unknown')}: {str(e)}"
+                result['errors'].append(error_msg)
+                continue
+
+        # Commit all changes
+        db.commit()
+        result['success'] = True
+
+    except Exception as e:
+        db.rollback()
+        result['errors'].append(f"Sync failed: {str(e)}")
+        result['success'] = False
+
+    return result

@@ -20,7 +20,9 @@ createApp({
                 datePlayed: this.getCurrentDateTime()
             },
             message: '',
-            messageType: ''
+            messageType: '',
+            isSyncing: false,
+            syncResult: null
         };
     },
     mounted() {
@@ -103,6 +105,42 @@ createApp({
             } catch (error) {
                 console.error('Error adding game:', error);
                 this.showMessage('Error adding game', 'error');
+            }
+        },
+        async syncBGGGames() {
+            if (this.isSyncing) {
+                return; // Prevent multiple simultaneous syncs
+            }
+
+            this.isSyncing = true;
+            this.syncResult = null;
+            this.showMessage('Syncing BoardGameGeek collection... This may take a few minutes.', 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/games/sync-bgg`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    this.syncResult = result;
+                    await this.loadGames();
+                    await this.loadStats();
+                    this.showMessage(
+                        `Successfully synced! ${result.games_added} added, ${result.games_updated} updated.`,
+                        'success'
+                    );
+                } else {
+                    this.showMessage('Error syncing BoardGameGeek collection', 'error');
+                    console.error('Sync error:', result);
+                }
+            } catch (error) {
+                console.error('Error syncing BGG:', error);
+                this.showMessage('Error syncing BoardGameGeek collection', 'error');
+            } finally {
+                this.isSyncing = false;
             }
         },
         async recordMatch() {

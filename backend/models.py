@@ -2,7 +2,7 @@ import os
 import sys
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Float, Boolean
 from sqlalchemy.orm import relationship
 
 if __package__ in (None, ""):
@@ -24,6 +24,18 @@ class Game(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
+
+    # BoardGameGeek integration fields
+    bgg_id = Column(Integer, unique=True, index=True, nullable=True)
+    year_published = Column(Integer, nullable=True)
+    thumbnail_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)
+    min_players = Column(Integer, nullable=True)
+    max_players = Column(Integer, nullable=True)
+    playing_time = Column(Integer, nullable=True)
+    bgg_rating = Column(Float, nullable=True)
+    is_from_bgg = Column(Boolean, default=False)
+    last_synced = Column(DateTime, nullable=True)
 
     matches = relationship("Match", back_populates="game")
 

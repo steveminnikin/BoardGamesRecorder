@@ -28,6 +28,16 @@ class GameUpdate(BaseModel):
 
 class Game(GameBase):
     id: int
+    bgg_id: Optional[int] = None
+    year_published: Optional[int] = None
+    thumbnail_url: Optional[str] = None
+    image_url: Optional[str] = None
+    min_players: Optional[int] = None
+    max_players: Optional[int] = None
+    playing_time: Optional[int] = None
+    bgg_rating: Optional[float] = None
+    is_from_bgg: bool = False
+    last_synced: Optional[datetime] = None
 
     class Config:
         from_attributes = True

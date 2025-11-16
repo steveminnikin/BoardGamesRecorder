@@ -179,6 +179,35 @@ def read_game_stats(game_id: int, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Game not found")
     return stats[0]
 
+# BoardGameGeek Integration endpoints
+@app.post("/api/games/sync-bgg")
+def sync_boardgamegeek_collection(username: str = "steveminnikin", db: Session = Depends(get_db)):
+    """
+    Sync games from BoardGameGeek for the specified username.
+
+    Returns:
+        Dictionary with sync results including success status,
+        games added/updated counts, and any errors encountered.
+    """
+    result = crud.sync_games_from_bgg(db, username)
+
+    if not result['success']:
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "message": "BGG sync failed",
+                "errors": result['errors']
+            }
+        )
+
+    return {
+        "success": True,
+        "message": f"Successfully synced {result['total_games']} games from BoardGameGeek",
+        "games_added": result['games_added'],
+        "games_updated": result['games_updated'],
+        "errors": result['errors']
+    }
+
 # Mount static files for frontend
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
 if os.path.exists(frontend_path):
