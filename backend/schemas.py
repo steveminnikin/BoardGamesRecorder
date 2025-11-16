@@ -8,6 +8,9 @@ class PlayerBase(BaseModel):
 class PlayerCreate(PlayerBase):
     pass
 
+class PlayerUpdate(BaseModel):
+    name: Optional[str] = None
+
 class Player(PlayerBase):
     id: int
 
@@ -19,6 +22,9 @@ class GameBase(BaseModel):
 
 class GameCreate(GameBase):
     pass
+
+class GameUpdate(BaseModel):
+    name: Optional[str] = None
 
 class Game(GameBase):
     id: int
@@ -33,6 +39,11 @@ class MatchBase(BaseModel):
 
 class MatchCreate(MatchBase):
     pass
+
+class MatchUpdate(BaseModel):
+    game_id: Optional[int] = None
+    winner_id: Optional[int] = None
+    date_played: Optional[datetime] = None
 
 class Match(MatchBase):
     id: int

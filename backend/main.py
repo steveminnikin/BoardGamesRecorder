@@ -1,12 +1,25 @@
-from fastapi import FastAPI, Depends, HTTPException
+import os
+import sys
+from pathlib import Path
+from typing import List
+
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
-from typing import List
-import os
 
-from backend import models, schemas, crud
-from backend.database import engine, get_db
+try:
+    # Normal package import when backend is available on PYTHONPATH
+    from backend import crud, models, schemas
+    from backend.database import engine, get_db
+except ImportError:  # pragma: no cover - fallback for `python backend/main.py`
+    backend_dir = Path(__file__).resolve().parent
+    if str(backend_dir) not in sys.path:
+        sys.path.append(str(backend_dir))
+    import crud  # type: ignore  # noqa: F401
+    import models  # type: ignore  # noqa: F401
+    import schemas  # type: ignore  # noqa: F401
+    from database import engine, get_db  # type: ignore  # noqa: F401
 
 # Create database tables
 models.Base.metadata.create_all(bind=engine)
@@ -29,7 +42,33 @@ def read_players(db: Session = Depends(get_db)):
 
 @app.post("/api/players", response_model=schemas.Player)
 def create_player(player: schemas.PlayerCreate, db: Session = Depends(get_db)):
-    return crud.create_player(db, player)
+    try:
+        return crud.create_player(db, player)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@app.put("/api/players/{player_id}", response_model=schemas.Player)
+@app.patch("/api/players/{player_id}", response_model=schemas.Player)
+def update_player(player_id: int, player_update: schemas.PlayerUpdate, db: Session = Depends(get_db)):
+    try:
+        db_player = crud.update_player(db, player_id, player_update)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if db_player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return db_player
+
+@app.delete("/api/players/{player_id}", status_code=204)
+def delete_player(player_id: int, db: Session = Depends(get_db)):
+    try:
+        deleted_player = crud.delete_player(db, player_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if deleted_player is None:
+        raise HTTPException(status_code=404, detail="Player not found")
+    return None
 
 @app.get("/api/players/{player_id}", response_model=schemas.Player)
 def read_player(player_id: int, db: Session = Depends(get_db)):
@@ -45,7 +84,33 @@ def read_games(db: Session = Depends(get_db)):
 
 @app.post("/api/games", response_model=schemas.Game)
 def create_game(game: schemas.GameCreate, db: Session = Depends(get_db)):
-    return crud.create_game(db, game)
+    try:
+        return crud.create_game(db, game)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+@app.put("/api/games/{game_id}", response_model=schemas.Game)
+@app.patch("/api/games/{game_id}", response_model=schemas.Game)
+def update_game(game_id: int, game_update: schemas.GameUpdate, db: Session = Depends(get_db)):
+    try:
+        db_game = crud.update_game(db, game_id, game_update)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    if db_game is None:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return db_game
+
+@app.delete("/api/games/{game_id}", status_code=204)
+def delete_game(game_id: int, db: Session = Depends(get_db)):
+    try:
+        deleted_game = crud.delete_game(db, game_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if deleted_game is None:
+        raise HTTPException(status_code=404, detail="Game not found")
+    return None
 
 @app.get("/api/games/{game_id}", response_model=schemas.Game)
 def read_game(game_id: int, db: Session = Depends(get_db)):
@@ -79,6 +144,28 @@ def read_match(match_id: int, db: Session = Depends(get_db)):
     if db_match is None:
         raise HTTPException(status_code=404, detail="Match not found")
     return db_match
+
+@app.put("/api/matches/{match_id}", response_model=schemas.Match)
+@app.patch("/api/matches/{match_id}", response_model=schemas.Match)
+def update_match(match_id: int, match_update: schemas.MatchUpdate, db: Session = Depends(get_db)):
+    if match_update.game_id is not None:
+        if crud.get_game(db, match_update.game_id) is None:
+            raise HTTPException(status_code=404, detail="Game not found")
+    if match_update.winner_id is not None:
+        if crud.get_player(db, match_update.winner_id) is None:
+            raise HTTPException(status_code=404, detail="Player not found")
+
+    db_match = crud.update_match(db, match_id, match_update)
+    if db_match is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return db_match
+
+@app.delete("/api/matches/{match_id}", status_code=204)
+def delete_match(match_id: int, db: Session = Depends(get_db)):
+    db_match = crud.delete_match(db, match_id)
+    if db_match is None:
+        raise HTTPException(status_code=404, detail="Match not found")
+    return None
 
 # Statistics endpoints
 @app.get("/api/stats", response_model=List[schemas.GameStats])
