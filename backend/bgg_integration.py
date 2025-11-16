@@ -84,6 +84,15 @@ class BGGIntegration:
                 if response.status_code == 200:
                     return self._parse_collection_xml(response.text)
 
+                # Handle specific error codes
+                if response.status_code == 401:
+                    logger.error(f"Access denied: Collection for '{username}' is private or authentication required")
+                    return None
+
+                if response.status_code == 404:
+                    logger.error(f"User '{username}' not found on BoardGameGeek")
+                    return None
+
                 logger.error(f"Unexpected status code: {response.status_code}")
                 return None
 
