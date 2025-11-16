@@ -15,6 +15,9 @@ services:
       SQLALCHEMY_DATABASE_URL: "sqlite:///./data/boardgames.db"
     volumes:
       - "/srv/dev-disk-by-uuid-e7c9f478-064a-4675-acb7-fca7a195f214/appdata/boardgames/data:/app/data"
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
     restart: unless-stopped
     healthcheck:
       test:
