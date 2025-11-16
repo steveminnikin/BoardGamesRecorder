@@ -151,6 +151,15 @@ createApp({
                 minute: '2-digit'
             });
         },
+        formatDateUK(dateString) {
+            const date = new Date(dateString);
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = date.toLocaleString('en-GB', { month: 'short' });
+            const year = String(date.getFullYear()).slice(-2);
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${day} ${month} ${year} ${hours}:${minutes}`;
+        },
         getWinRateColor(winRate) {
             if (winRate >= 60) return 'color: #22c55e';
             if (winRate >= 40) return 'color: #eab308';
