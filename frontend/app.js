@@ -23,6 +23,13 @@ createApp({
             messageType: ''
         };
     },
+    computed: {
+        sortedStats() {
+            return [...this.stats].sort((a, b) =>
+                a.game_name.localeCompare(b.game_name)
+            );
+        }
+    },
     mounted() {
         this.loadData();
     },

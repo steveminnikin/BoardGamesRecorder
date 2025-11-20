@@ -97,7 +97,7 @@
                     No statistics available yet.
                 </div>
                 <div v-else class="stats-list">
-                    <div v-for="stat in stats" :key="stat.game_id" class="stats-card">
+                    <div v-for="stat in sortedStats" :key="stat.game_id" class="stats-card">
                         <h3>{{ stat.game_name }}</h3>
                         <div class="game-info">
                             <span class="total-matches">Total matches: {{ stat.total_matches }}</span>
